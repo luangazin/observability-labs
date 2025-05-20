@@ -51,5 +51,11 @@ To stop all services:
 docker compose down
 ```
 
+## Docs
+* [OpenTelemetry Documentation](https://opentelemetry.io/docs/)
+* [Jaeger Documentation](https://www.jaegertracing.io/docs/)
+* [Prometheus Documentation](https://prometheus.io/docs/introduction/overview/)
+* [Grafana Documentation](https://grafana.com/docs/)
+
 ## Credits
-[Medium Article](https://medium.com/@blackhorseya/deploying-opentelemetry-collector-jaeger-and-prometheus-with-docker-compose-for-observability-fedd7c0898b5)
+* [Medium Article](https://medium.com/@blackhorseya/deploying-opentelemetry-collector-jaeger-and-prometheus-with-docker-compose-for-observability-fedd7c0898b5)
