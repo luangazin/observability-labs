@@ -2,22 +2,42 @@ receivers:
   otlp:
     protocols:
       grpc:
-        endpoint: 0.0.0.0:4317
+      http:
+
 processors:
-extensions:
-  health_check: {}
+  batch:
+    timeout: 1s
+    send_batch_size: 1000
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 4000
+    spike_limit_mib: 500
+
 exporters:
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+    namespace: otelcol
+
+  jaeger:
+    endpoint: jaeger:14250
+    tls:
+      insecure: true
+
+  logging:
+    loglevel: debug
+
   otlp:
     endpoint: jaeger:4317
     tls:
       insecure: true
-  prometheus:
-    endpoint: "0.0.0.0:9090"
+
 service:
   pipelines:
     traces:
       receivers: [otlp]
-      exporters: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [jaeger, logging]
     metrics:
       receivers: [otlp]
-      exporters: [prometheus]
+      processors: [memory_limiter, batch]
+      exporters: [prometheus, logging]

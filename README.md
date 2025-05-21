@@ -37,25 +37,47 @@ The following services are available in your browser:
 
 ## Service Endpoints
 
-- OpenTelemetry Collector:
-  - OTLP gRPC: `localhost:4317`
+### OpenTelemetry Collector
+- OTLP gRPC: `localhost:4317`
+- OTLP HTTP: `localhost:4318`
+- Metrics: `localhost:8888`
+- Prometheus Exposition: `localhost:8889`
+- Health Check: `localhost:13133`
 
-- Jaeger:
-  - Collector HTTP: `localhost:14268`
-  - Agent UDP: `localhost:6831`
+### Jaeger
+- Web UI: `localhost:16686`
+- gRPC Model: `localhost:14250`
+- HTTP Thrift: `localhost:14268`
+- Health Check: `localhost:14269`
+- Thrift Compact (UDP): `localhost:6831`
+- Thrift Binary (UDP): `localhost:6832`
+- Configurations: `localhost:5778`
+
+### Prometheus
+- Web UI & API: `localhost:9090`
+
+### Grafana 
+- Web UI: `localhost:3000`
+
+## Data Persistence
+The stack includes persistent volumes for:
+- Prometheus data
+- Grafana data
 
 ## Stopping the Stack
 
-To stop all services:
+To stop all services and retain data:
 ```bash
 docker compose down
 ```
 
-## Docs
+To stop all services and remove persistent volumes:
+```bash
+docker compose down -v
+```
+
+## Documentation
 * [OpenTelemetry Documentation](https://opentelemetry.io/docs/)
 * [Jaeger Documentation](https://www.jaegertracing.io/docs/)
 * [Prometheus Documentation](https://prometheus.io/docs/introduction/overview/)
 * [Grafana Documentation](https://grafana.com/docs/)
-
-## Credits
-* [Medium Article](https://medium.com/@blackhorseya/deploying-opentelemetry-collector-jaeger-and-prometheus-with-docker-compose-for-observability-fedd7c0898b5)
