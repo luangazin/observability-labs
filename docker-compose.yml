@@ -3,7 +3,7 @@ version: '3'
 services:
   # OpenTelemetry Collector
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:latest
+    image: otel/opentelemetry-collector-contrib:0.126.0
     container_name: otel-collector
     command: ["--config=/etc/otel-collector-config.yaml"]
     volumes:
@@ -20,7 +20,7 @@ services:
 
   # Jaeger
   jaeger:
-    image: jaegertracing/all-in-one:latest
+    image: jaegertracing/all-in-one:1.69.0
     container_name: jaeger
     ports:
       - "16686:16686"   # Web UI
@@ -33,7 +33,7 @@ services:
 
   # Prometheus
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v3.4.0
     container_name: prometheus
     command:
       - --config.file=/etc/prometheus/prometheus.yml
@@ -48,7 +48,7 @@ services:
 
   # Grafana
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:12.0.0-ubuntu
     container_name: grafana
     volumes:
       - grafana_data:/var/lib/grafana
