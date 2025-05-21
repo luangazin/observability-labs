@@ -18,26 +18,22 @@ exporters:
     endpoint: "0.0.0.0:8889"
     namespace: otelcol
 
-  jaeger:
-    endpoint: jaeger:14250
-    tls:
-      insecure: true
-
-  logging:
-    loglevel: debug
-
-  otlp:
+  otlp/jaeger:
     endpoint: jaeger:4317
+    
     tls:
       insecure: true
+
+  debug:
+    verbosity: detailed
 
 service:
   pipelines:
     traces:
       receivers: [otlp]
       processors: [memory_limiter, batch]
-      exporters: [jaeger, logging]
+      exporters: [otlp/jaeger, debug]
     metrics:
       receivers: [otlp]
       processors: [memory_limiter, batch]
-      exporters: [prometheus, logging]
+      exporters: [prometheus, debug]
