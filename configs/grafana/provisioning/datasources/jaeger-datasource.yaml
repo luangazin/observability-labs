@@ -5,7 +5,7 @@ datasources:
     type: jaeger
     access: proxy
     orgId: 1
-    url: http://jaeger:16686
+    url: http://jaeger:16686/api/traces
     basicAuth: false
     isDefault: false
     editable: true
