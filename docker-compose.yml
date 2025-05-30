@@ -1,48 +1,39 @@
 services:
-  # nodejs-app:
-  #   build:
-  #     context: ./nodejs-sample
-  #     dockerfile: Dockerfile
-  #   container_name: nodejs-app
-  #   environment:
-  #     - PORT=8080
-  #     - SERVICE_NAME=nodejs-sample
-  #     - OTLP_TRACE_EXPORTER=http://otel-collector:4318/v1/traces
-  #     - OTLP_METRIC_EXPORTER=http://otel-collector:4318/v1/metrics
-  #   ports:
-  #     - "8080:8080"
-  #   depends_on:
-  #     - otel-collector
-
   # OpenTelemetry Collector
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.126.0
+    image: otel/opentelemetry-collector-contrib:0.127.0
     container_name: otel-collector
-    command: ["--config=/etc/otel-collector-config.yaml"]
+    command: ["--config", "/etc/otel-collector-config.yaml"]
     volumes:
+      - ./tmp/logs/TMS:/var/log/tms
+      - ./tmp/logs/NGINX:/var/log/nginx
       - ./configs/otel-collector-config.yaml:/etc/otel-collector-config.yaml
     ports:
-      - "4317:4317"   # OTLP gRPC
-      - "4318:4318"   # OTLP HTTP
-      - "8888:8888"   # Metrics
-      - "8889:8889"   # Prometheus exposition
+      - "4317:4317" # OTLP gRPC
+      - "4318:4318" # OTLP HTTP
+      - "8888:8888" # Metrics
+      - "8889:8889" # Prometheus exposition
       - "13133:13133" # Health check
     depends_on:
-      - jaeger
-      - prometheus
-
+      - loki
+    networks:
+      observability-network:
+        aliases:
+          - otel-collector-alias.127.0.0.1.nip.io
   # Jaeger
   jaeger:
     image: jaegertracing/all-in-one:1.69.0
     container_name: jaeger
     ports:
-      - "16686:16686"   # Web UI
-      - "14250:14250"   # Model used by jaeger
-      - "14268:14268"   # HTTP Thrift
-      - "14269:14269"   # Health check
+      - "16686:16686" # Web UI
+      - "14250:14250" # Model used by jaeger
+      - "14268:14268" # HTTP Thrift
+      - "14269:14269" # Health check
       - "6831:6831/udp" # Thrift compact
       - "6832:6832/udp" # Thrift binary
-      - "5778:5778"     # Configurations
+      - "5778:5778" # Configurations
+    networks:
+      - observability-network
 
   # Prometheus
   prometheus:
@@ -50,54 +41,67 @@ services:
     container_name: prometheus
     command:
       - --config.file=/etc/prometheus/prometheus.yml
-      - --storage.tsdb.path=/prometheus
-      - --web.console.libraries=/usr/share/prometheus/console_libraries
-      - --web.console.templates=/usr/share/prometheus/consoles
+      - --web.enable-remote-write-receiver
     volumes:
       - ./configs/prometheus.yaml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus
     ports:
       - "9090:9090"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - observability-network
 
   # Grafana
   grafana:
-    image: grafana/grafana:12.0.0-ubuntu
+    image: grafana/grafana:12.0.1-ubuntu
     container_name: grafana
-    volumes:
-      - grafana_data:/var/lib/grafana
-      - ./configs/grafana/provisioning:/etc/grafana/provisioning
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_AUTH_ANONYMOUS_ENABLED=true
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
       - GF_AUTH_DISABLE_LOGIN_FORM=true
     ports:
       - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./configs/grafana/provisioning:/etc/grafana/provisioning
     depends_on:
-      - prometheus
+      - loki
+    networks:
+      - observability-network
 
   # Loki
   loki:
-    image: grafana/loki:2.9.14
+    image: grafana/loki:3.5
     container_name: loki
+    user: root
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3100/ready"]
+      interval: 10s
+      timeout: 10s
+      retries: 6
     command: -config.file=/etc/loki/local-config.yaml
     ports:
       - "3100:3100"
     volumes:
       - ./configs/loki-config.yaml:/etc/loki/local-config.yaml
       - loki_data:/loki
-
-  # Promtail
-  promtail:
-    image: grafana/promtail:2.9.14
-    container_name: promtail
-    command: -config.file=/etc/promtail/config.yaml
-    volumes:
-      - ./configs/promtail-config.yaml:/etc/promtail/config.yaml
-      - /var/log:/var/log
-    depends_on:
-      - loki
+    networks:
+      - observability-network
 
 volumes:
   prometheus_data:
   grafana_data:
   loki_data:
+
+networks:
+  observability-network:
+    name: observability-network
+    driver: bridge

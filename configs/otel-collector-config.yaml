@@ -5,45 +5,119 @@ receivers:
         endpoint: 0.0.0.0:4317
       http:
         endpoint: 0.0.0.0:4318
+  rabbitmq:
+    endpoint: http://broker:15672
+    username: otel
+    password: bitnami
+    collection_interval: 10s
+  prometheus/rabbitmq:
+    config:
+      scrape_configs:
+        - job_name: 'rabbitmq'
+          metrics_path: /metrics
+          static_configs:
+            - targets: ['broker:15692']
+  nginx:
+    endpoint: "http://nginx/nginx_status"
+    collection_interval: 10s
+  filelog:
+    include: ["/var/log/nginx/access.log"]
+    operators:
+      - type: json_parser
+        if: 'body matches "^{.*}$"'
+        parse_from: body
 
 processors:
   batch:
-    timeout: 1s
-    send_batch_size: 1000
-  memory_limiter:
-    check_interval: 1s
-    limit_mib: 4000
-    spike_limit_mib: 500
-
-exporters:
-  prometheus:
-    endpoint: "0.0.0.0:8889"
-    namespace: otelcol
-
-  otlp/jaeger:
-    endpoint: jaeger:4317
-    tls:
-      insecure: true
-
-  debug:
-    verbosity: detailed
+  #Logs
+  resource/nginx:
+    attributes:
+      - key: service.name
+        value: "NGINX-OTEL-SERVICE"
+        action: upsert
+  resource/ecosystem:
+    attributes:
+      - key: service.namespace
+        value: "NAMESPACE"
+        action: upsert
+  #Metrics and Logs
+  attributes:
+    actions:
+      - key: Source
+        value: "Otel-Collector"
+        action: upsert
+  attributes/namespace:
+    actions:
+      - key: namespace
+        value: "NAMESPACE"
+        action: upsert
+  attributes/app:
+    actions:
+      - key: application
+        value: "TMS"
+        action: upsert
+  attributes/rabbit:
+    actions:
+      - key: application
+        value: "RabbitMQ"
+        action: upsert
+  attributes/nginx:
+    actions:
+      - key: application
+        value: "NGIX"
+        action: upsert
 
 extensions:
   health_check:
-    endpoint: 0.0.0.0:13133
   pprof:
-    endpoint: 0.0.0.0:1777
   zpages:
-    endpoint: 0.0.0.0:55679
+
+exporters:
+  #pull based on prometheus
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+  #push based on prometheus
+  #prometheusremotewrite:
+  #  endpoint: "http://prometheus:9090/api/v1/write"
+  #  tls:
+  #    insecure: true
+  debug:
+    verbosity: detailed
+  otlphttp/logs:
+    endpoint: "http://loki:3100/otlp"
+    tls:
+      insecure: true
+  otlp:
+    endpoint: "http://jaeger:4317"
+    tls:
+      insecure: true
 
 service:
   extensions: [health_check, pprof, zpages]
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [memory_limiter, batch]
-      exporters: [otlp/jaeger, debug]
-    metrics:
+      exporters: [otlp]
+    metrics/otlp:
       receivers: [otlp]
-      processors: [memory_limiter, batch]
-      exporters: [prometheus, debug]
+      processors: [batch, attributes, attributes/namespace, attributes/app]
+      exporters: [prometheus]
+      #exporters: [prometheusremotewrite]
+    metrics/rabbitmq:
+      receivers: [ rabbitmq, prometheus/rabbitmq ]
+      processors: [ batch, attributes, attributes/namespace, attributes/rabbit ]
+      exporters: [ prometheus ]
+      #exporters: [prometheusremotewrite]
+    metrics/nginx:
+      receivers: [ nginx ]
+      processors: [ batch, attributes, attributes/namespace, attributes/nginx ]
+      exporters: [ prometheus ]
+      #exporters: [prometheusremotewrite]
+    logs/filelog:
+      receivers: [filelog]
+      processors: [attributes, resource/nginx, resource/ecosystem]
+      exporters: [otlphttp/logs, debug]
+    logs/otlp:
+      receivers: [ otlp ]
+      processors: [ attributes, resource/ecosystem ]
+      exporters: [ otlphttp/logs, debug ]
